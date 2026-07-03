@@ -1,0 +1,118 @@
+/* SIEM TCC - tema visual compartilhado (login + dashboard) */
+
+:root {
+    --bg-deep: #0b1120;
+    --bg-panel: #0f172a;
+    --glass-bg: rgba(255, 255, 255, 0.06);
+    --glass-border: rgba(255, 255, 255, 0.10);
+    --accent: #38bdf8;
+    --accent-strong: #0ea5e9;
+    --danger: #f87171;
+    --safe: #34d399;
+    --text-main: #e2e8f0;
+    --text-dim: #94a3b8;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    background:
+        radial-gradient(circle at 15% 10%, rgba(56, 189, 248, 0.10), transparent 40%),
+        radial-gradient(circle at 85% 30%, rgba(129, 82, 245, 0.10), transparent 45%),
+        var(--bg-deep);
+    background-attachment: fixed;
+    color: var(--text-main);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+}
+
+.glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+/* ---------- Navbar ---------- */
+.navbar {
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.navbar-brand { color: var(--text-main) !important; font-weight: 800; letter-spacing: -0.02em; }
+
+.btn-accent {
+    background: linear-gradient(135deg, var(--accent-strong), #6366f1);
+    color: #fff; border: none; font-weight: 600;
+    padding: 10px 20px; border-radius: 12px; transition: all .2s;
+}
+.btn-accent:hover { filter: brightness(1.1); transform: translateY(-1px); color: #fff; }
+
+.btn-ghost {
+    background: transparent; color: var(--text-dim);
+    border: 1px solid var(--glass-border); border-radius: 12px;
+    padding: 10px 16px; font-weight: 600; transition: all .2s;
+}
+.btn-ghost:hover { color: var(--text-main); border-color: var(--accent); }
+
+/* ---------- Metric cards ---------- */
+.metric-card { transition: all .25s cubic-bezier(.4,0,.2,1); }
+.metric-card:hover { transform: translateY(-4px); background: rgba(255,255,255,0.09); }
+
+.metric-value { font-size: 2.6rem; font-weight: 800; color: var(--accent); }
+.metric-label {
+    color: var(--text-dim); font-size: .72rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .1em;
+}
+
+/* ---------- Table ---------- */
+.table { --bs-table-bg: transparent; color: var(--text-main); }
+.table thead th {
+    background: rgba(255, 255, 255, 0.03); color: var(--text-dim);
+    font-size: .68rem; font-weight: 700; border: none; padding: 14px;
+}
+.table td { border-color: rgba(255,255,255,0.06); vertical-align: middle; }
+
+.badge-brute {
+    background: rgba(248, 113, 113, 0.15); color: var(--danger);
+    border: 1px solid rgba(248, 113, 113, 0.25); border-radius: 8px;
+}
+.badge-safe {
+    background: rgba(52, 211, 153, 0.12); color: var(--safe);
+    border: 1px solid rgba(52, 211, 153, 0.25); border-radius: 8px;
+}
+
+code {
+    color: var(--accent); background: rgba(56, 189, 248, 0.08);
+    padding: 3px 8px; border-radius: 8px; border: 1px solid rgba(56,189,248,0.15);
+}
+
+.flag-icon { border-radius: 4px; margin-right: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+
+/* ---------- Login page ---------- */
+.login-shell {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+}
+.login-card {
+    width: 100%; max-width: 400px; padding: 40px 36px;
+}
+.login-icon {
+    width: 56px; height: 56px; border-radius: 16px;
+    background: linear-gradient(135deg, var(--accent-strong), #6366f1);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 18px auto;
+}
+.form-control-siem {
+    background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border);
+    color: var(--text-main); border-radius: 12px; padding: 12px 14px;
+}
+.form-control-siem:focus {
+    background: rgba(255,255,255,0.06); border-color: var(--accent);
+    color: var(--text-main); box-shadow: 0 0 0 3px rgba(56,189,248,0.15);
+}
+.form-control-siem::placeholder { color: var(--text-dim); }
