@@ -1,0 +1,29 @@
+# Ambiente virtual
+.venv/
+venv/
+env/
+
+# Segredos - NUNCA versionar
+.env
+
+# Banco de dados local
+data/*.db
+*.db
+
+# Build do PyInstaller
+build/
+dist/
+*.spec.bak
+
+# Cache Python
+__pycache__/
+*.pyc
+*.pyo
+
+# IDEs
+.vscode/
+.idea/
+
+# Sistema
+.DS_Store
+Thumbs.db
