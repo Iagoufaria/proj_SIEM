@@ -1,4 +1,5 @@
 """Modelos e sessao do banco de dados (SQLite via SQLAlchemy)."""
+
 from datetime import datetime
 
 from sqlalchemy import Column, DateTime, Integer, String, create_engine
@@ -21,6 +22,7 @@ class Alerta(Base):
 
     id = Column(Integer, primary_key=True)
     data_hora = Column(DateTime, default=datetime.now)
+    time_created = Column(DateTime, nullable=True)  # data/hora real do Evento 4625 - usado para deduplicacao correta
     usuario = Column(String, nullable=False)
     ip_origem = Column(String, nullable=False)
     pais = Column(String)

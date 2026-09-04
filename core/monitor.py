@@ -10,6 +10,7 @@ import json
 import logging
 import subprocess
 import time
+from datetime import datetime
 
 import config
 from core.database import Alerta, Session
@@ -26,27 +27,70 @@ _PS_COMANDO = (
 )
 
 
+def _parse_time_created(raw) -> datetime:
+    """Converte TimeCreated do JSON do PowerShell para datetime."""
+    if not raw:
+        return datetime.now()
+    # Formato legado /Date(123456789)/
+    if isinstance(raw, str) and "/Date(" in raw:
+        try:
+            ms = int(raw[6:raw.index(")")])
+            return datetime.fromtimestamp(ms / 1000)
+        except Exception:
+            return datetime.now()
+    # Formato ISO: 2026-09-04T10:30:00 ou com Z
+    try:
+        s = str(raw).replace("Z", "+00:00")
+        # PowerShell as vezes envia "04/09/2026 10:30:00"
+        if "T" in s:
+            return datetime.fromisoformat(s)
+        # tenta parse flexivel
+        for fmt in ("%d/%m/%Y %H:%M:%S", "%m/%d/%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+            try:
+                return datetime.strptime(s, fmt)
+            except ValueError:
+                continue
+        return datetime.fromisoformat(s)
+    except Exception:
+        return datetime.now()
+
+
 def _processar_eventos(db, eventos) -> None:
     if not isinstance(eventos, list):
         eventos = [eventos]
 
     for evento in eventos:
-        usuario = str(evento.get("U"))
-        ip = str(evento.get("I"))
+        usuario = str(evento.get("U") or "").strip()
+        ip = str(evento.get("I") or "").strip()
+        if not usuario or not ip:
+            continue
 
+        time_created = _parse_time_created(evento.get("TimeCreated"))
+
+        # Deduplicacao correta: mesmo usuario+ip em horarios diferentes = eventos distintos
+        # Permite contar >3 tentativas para o card "Ameacas Criticas" em app.py:81
         ja_existe = (
-            db.query(Alerta).filter_by(usuario=usuario, ip_origem=ip).first()
+            db.query(Alerta)
+            .filter_by(usuario=usuario, ip_origem=ip, time_created=time_created)
+            .first()
             is not None
         )
         if ja_existe:
             continue
 
         pais, codigo = obter_geolocalizacao(ip)
-        novo_alerta = Alerta(usuario=usuario, ip_origem=ip, pais=pais, codigo_pais=codigo)
+        novo_alerta = Alerta(
+            usuario=usuario,
+            ip_origem=ip,
+            pais=pais,
+            codigo_pais=codigo,
+            time_created=time_created,
+            mensagem_bruta=f"4625 em {time_created:%d/%m/%Y %H:%M:%S}",
+        )
         db.add(novo_alerta)
         db.commit()
         enviar_alerta_telegram(usuario, ip, pais)
-        logger.info("Novo alerta: usuario=%s ip=%s pais=%s", usuario, ip, pais)
+        logger.info("Novo alerta: usuario=%s ip=%s pais=%s time=%s", usuario, ip, pais, time_created)
 
 
 def monitorar_windows() -> None:
@@ -81,10 +125,6 @@ def monitorar_windows() -> None:
         except json.JSONDecodeError as exc:
             logger.warning("Saida do PowerShell nao era um JSON valido: %s", exc)
         except Exception:
-            # Ultima linha de defesa: o loop de monitoramento roda em uma
-            # thread em background e NUNCA pode derrubar o processo por
-            # causa de um erro inesperado - mas o erro fica registrado
-            # no log em vez de ser silenciosamente ignorado.
             logger.exception("Erro inesperado no loop de monitoramento.")
         finally:
             Session.remove()

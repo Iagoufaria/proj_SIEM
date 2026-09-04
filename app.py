@@ -36,6 +36,12 @@ login_manager.init_app(app)
 csrf = CSRFProtect(app)
 
 
+@app.teardown_appcontext
+def shutdown_session(exception=None):
+    """Garante que a sessao scoped do SQLAlchemy seja removida ao fim de cada request."""
+    Session.remove()
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:

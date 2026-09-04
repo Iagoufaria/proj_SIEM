@@ -1,4 +1,6 @@
 """Geolocalizacao de IPs e envio de alertas via Telegram."""
+import html
+import ipaddress
 import logging
 
 import requests
@@ -11,13 +13,25 @@ _IP_API_URL = "http://ip-api.com/json/{ip}"
 _TELEGRAM_URL = "https://api.telegram.org/bot{token}/sendMessage"
 
 
+def _is_privado(ip: str) -> bool:
+    """Detecta IP local/privado sem depender só de startswith."""
+    if ip in {"-", "127.0.0.1", "::1", "0.0.0.0", "::", "localhost"}:
+        return True
+    try:
+        # Cobre 10.0.0.0/8, 172.16.0.0/12 (172.16-31.*), 192.168.0.0/16, fc00::/7, fe80::/10
+        return ipaddress.ip_address(ip).is_private
+    except ValueError:
+        # Fallback para formatos estranhos do Event 4625 (ex: "-")
+        return ip.startswith(("192.168.", "10.", "172.", "fe80:", "fc", "fd"))
+
+
 def obter_geolocalizacao(ip: str) -> tuple[str, str]:
     """Retorna (pais, codigo_pais) para um IP publico.
 
     IPs locais/privados retornam ("Local", "br") sem consultar a API
     externa, tanto por performance quanto por privacidade.
     """
-    if ip in {"-", "127.0.0.1", "::1"} or ip.startswith(("192.168.", "10.", "172.16.")):
+    if _is_privado(ip):
         return "Local", "br"
 
     try:
@@ -44,12 +58,16 @@ def enviar_alerta_telegram(usuario: str, ip: str, pais: str) -> bool:
         logger.info("Telegram nao configurado (.env) - alerta nao enviado.")
         return False
 
-    emoji = "\U0001F6A8" if ip != "127.0.0.1" else "\U0001F6E0"
+    emoji = "\U0001F6A8" if not _is_privado(ip) else "\U0001F6E0"
+    # HTML em vez de Markdown: evita quebra quando usuario/ip contem _ * ` [ ]
+    usuario_h = html.escape(usuario)
+    ip_h = html.escape(ip)
+    pais_h = html.escape(pais)
     mensagem = (
-        f"{emoji} *INTRUSAO DETECTADA*\n\n"
-        f"\U0001F464 Usuario: `{usuario}`\n"
-        f"\U0001F310 IP: `{ip}`\n"
-        f"\U0001F4CD Pais: {pais}"
+        f"{emoji} <b>INTRUSAO DETECTADA</b>\n\n"
+        f"\U0001F464 Usuario: <code>{usuario_h}</code>\n"
+        f"\U0001F310 IP: <code>{ip_h}</code>\n"
+        f"\U0001F4CD Pais: {pais_h}"
     )
     url = _TELEGRAM_URL.format(token=config.TELEGRAM_TOKEN)
 
@@ -59,7 +77,7 @@ def enviar_alerta_telegram(usuario: str, ip: str, pais: str) -> bool:
             data={
                 "chat_id": config.TELEGRAM_CHAT_ID,
                 "text": mensagem,
-                "parse_mode": "Markdown",
+                "parse_mode": "HTML",
             },
             timeout=5,
         )
