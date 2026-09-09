@@ -49,5 +49,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,              # opcional: aponte para um arquivo .ico do seu projeto
+    icon=None,  # opcional: aponte para um arquivo .ico do seu projeto
+    uac_admin=True,            
 )
+

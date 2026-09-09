@@ -5,6 +5,7 @@ janela desktop (pywebview) apontando para ele, e inicia em segundo
 plano o monitoramento do Log de Seguranca do Windows.
 """
 import csv
+import ctypes
 import logging
 import threading
 from io import StringIO
@@ -23,6 +24,14 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
+# Log em arquivo persistente para o .exe no Windows Server (sem console)
+try:
+    _handler = logging.FileHandler(config.DATA_DIR / "siem.log", encoding="utf-8")
+    _handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+    logging.getLogger().addHandler(_handler)
+except Exception:
+    pass
+
 logger = logging.getLogger("siem.app")
 
 app = Flask(
@@ -34,6 +43,15 @@ app.config["SECRET_KEY"] = config.SECRET_KEY
 
 login_manager.init_app(app)
 csrf = CSRFProtect(app)
+
+
+def _is_admin() -> bool:
+    if not config.IS_WINDOWS:
+        return True
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin() != 0
+    except Exception:
+        return False
 
 
 @app.teardown_appcontext
@@ -94,6 +112,8 @@ def index():
         valores=[s[1] for s in stats_usuario],
         ips_bloqueados=ips_bloqueados,
         total_eventos=sum(s[1] for s in stats_usuario) if stats_usuario else 0,
+        is_windows=config.IS_WINDOWS,
+        is_admin=_is_admin(),
     )
 
 

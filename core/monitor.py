@@ -6,6 +6,7 @@ e travava caso executado em outro sistema. Aqui, a checagem de
 plataforma evita esse erro e permite inclusive rodar o restante do
 painel (dashboard, login) em outros SOs durante o desenvolvimento.
 """
+import ctypes
 import json
 import logging
 import subprocess
@@ -18,33 +19,39 @@ from core.notifications import enviar_alerta_telegram, obter_geolocalizacao
 
 logger = logging.getLogger("siem.monitor")
 
+# Fallback: Server 2022 RDP entrega IP em [19] (Type 3) ou [18] (Type 10)
 _PS_COMANDO = (
     'Get-WinEvent -FilterHashtable @{{LogName="Security"; Id=4625; '
     'StartTime=(Get-Date).AddMinutes(-{janela})}} '
     '| Select-Object TimeCreated, @{{n="U";e={{$_.Properties[5].Value}}}}, '
-    '@{{n="I";e={{$_.Properties[19].Value}}}} '
+    '@{{n="I";e={{$v=$_.Properties[19].Value; if($v -match "\\d+\\.\\d+\\.\\d+\\.\\d+" -or $v -match ":"){{$v}}else{{$_.Properties[18].Value}}}}}} '
     "| ConvertTo-Json"
 )
+
+
+def _is_admin() -> bool:
+    if not config.IS_WINDOWS:
+        return False
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin() != 0
+    except Exception:
+        return False
 
 
 def _parse_time_created(raw) -> datetime:
     """Converte TimeCreated do JSON do PowerShell para datetime."""
     if not raw:
         return datetime.now()
-    # Formato legado /Date(123456789)/
     if isinstance(raw, str) and "/Date(" in raw:
         try:
             ms = int(raw[6:raw.index(")")])
             return datetime.fromtimestamp(ms / 1000)
         except Exception:
             return datetime.now()
-    # Formato ISO: 2026-09-04T10:30:00 ou com Z
     try:
         s = str(raw).replace("Z", "+00:00")
-        # PowerShell as vezes envia "04/09/2026 10:30:00"
         if "T" in s:
             return datetime.fromisoformat(s)
-        # tenta parse flexivel
         for fmt in ("%d/%m/%Y %H:%M:%S", "%m/%d/%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S"):
             try:
                 return datetime.strptime(s, fmt)
@@ -67,8 +74,6 @@ def _processar_eventos(db, eventos) -> None:
 
         time_created = _parse_time_created(evento.get("TimeCreated"))
 
-        # Deduplicacao correta: mesmo usuario+ip em horarios diferentes = eventos distintos
-        # Permite contar >3 tentativas para o card "Ameacas Criticas" em app.py:81
         ja_existe = (
             db.query(Alerta)
             .filter_by(usuario=usuario, ip_origem=ip, time_created=time_created)
@@ -103,6 +108,12 @@ def monitorar_windows() -> None:
             "sem captura automatica de novos eventos neste sistema."
         )
         return
+
+    if not _is_admin():
+        logger.warning(
+            "SIEM sem privilegio de Administrador - a leitura do Log de Seguranca "
+            "falhara no Windows Server. Feche e rode 'python app.py' como Administrador."
+        )
 
     comando = _PS_COMANDO.format(janela=config.SCAN_WINDOW_MINUTES)
 

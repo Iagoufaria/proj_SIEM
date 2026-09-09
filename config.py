@@ -73,6 +73,7 @@ load_dotenv(BASE_DIR / ".env")
 
 DB_PATH = DATA_DIR / "eventos_seguranca.db"
 DATABASE_URL = f"sqlite:///{DB_PATH}"
+LOG_PATH = DATA_DIR / "siem.log"
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "").strip()
 if not SECRET_KEY:
